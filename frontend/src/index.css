@@ -1,0 +1,359 @@
+:root{
+  --bg: #f4f6f8;
+  --panel: #ffffff;
+  --muted: #8a94a6;
+  --accent: #2b6cb0;
+  --gold: #d6a83a;
+}
+
+*{box-sizing:border-box}
+html,body,#root{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);}
+.app-root{display:flex;height:100vh;gap:16px;padding:16px}
+
+.sidebar{width:300px;display:flex;flex-direction:column;gap:12px}
+.panel{background:var(--panel);border-radius:8px;padding:12px;box-shadow:0 1px 2px rgba(16,24,40,0.04)}
+.panel-title{font-weight:600;margin-bottom:8px}
+.panel-body{display:flex;flex-direction:column;gap:8px}
+.list-item{display:block;color:var(--muted);font-size:14px}
+.add-btn{background:#1f6feb;color:white;border:none;padding:8px;border-radius:6px;cursor:pointer}
+
+.macro-list{display:flex;flex-direction:column;gap:8px}
+.stage-card{background:#eef6ff;border:1px solid #d6e9ff;padding:8px;border-radius:6px;cursor:grab}
+.stage-card-title{font-weight:600}
+.stage-card-sub{font-size:12px;color:var(--muted);margin-top:4px}
+
+.canvas-column{flex:1;display:flex;flex-direction:column;gap:12px}
+.canvas-header{display:flex;align-items:center;gap:16px;padding:8px 12px;background:linear-gradient(90deg,#fff,#fbfdff);border-radius:8px}
+.canvas-header .title{font-weight:700}
+.canvas-header .criticality{color:var(--muted)}
+.gold{color:var(--gold);font-weight:700}
+.actions{margin-left:auto}
+.primary{background:#1f6feb;color:white;border:none;padding:8px 10px;border-radius:6px}
+
+.canvas-area{flex:1;display:flex;align-items:center;justify-content:center;padding:12px}
+.canvas-stage{width:100%;height:calc(100% - 12px);border-radius:12px;background:#ffffff;box-shadow:0 8px 30px rgba(15,23,42,0.06);overflow:hidden;padding:16px;position:relative}
+/* subtle grid in the inner flow area */
+.canvas-stage .reactflow{background-image:linear-gradient(to right, rgba(0,0,0,0.02) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.02) 1px, transparent 1px);background-size:40px 40px}
+
+/* Transparent drop overlay - sits on top of ReactFlow to capture drops */
+.drop-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: auto;
+  z-index: 999;
+}
+
+.right-panel{width:260px;display:flex;flex-direction:column;gap:12px}
+.panel-body{color:var(--muted);font-size:14px}
+
+/* React Flow container adjustments */
+.canvas-stage .reactflow{width:100%;height:100%}
+
+/* custom node */
+/* Custom Node Styling */
+.custom-node {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff, #fbfdff);
+  border: 2px solid #eef6fb;
+  min-width: 180px;
+  min-height: 70px; /* Réduit pour layout plus compact */
+  transition: all 0.2s ease;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.custom-node:hover {
+  border-color: #d6e9ff;
+  background: #fafbfc;
+}
+
+.custom-node.drag-over {
+  border-color: #2b6cb0;
+  background: #f0f8ff;
+  box-shadow: inset 0 0 8px rgba(43, 108, 176, 0.1);
+  transform: scale(1.01);
+}
+
+.node-title {
+  font-weight: 700;
+  margin-bottom: 0;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.15s ease;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.node-title:hover {
+  color: #2b6cb0;
+}
+
+.node-title input {
+  font-size: 14px;
+  padding: 4px 6px;
+  border: 1px solid #bfdbfe;
+  border-radius: 4px;
+  font-weight: 700;
+  width: 100%;
+}
+
+/* Step title container with delete button */
+.node-title-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.node-title-container > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.step-number-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.start-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+  white-space: nowrap;
+}
+
+.step-delete-btn {
+  background: none;
+  border: none;
+  color: #d1d5db;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+  opacity: 0;
+}
+
+.custom-node:hover .step-delete-btn {
+  opacity: 1;
+  color: #ef4444;
+  background: #fee2e2;
+}
+
+.step-delete-btn:hover {
+  background: #fecaca;
+}
+
+/* start toggle button shown when node is selected */
+.start-btn {
+  background: #e2e8f0;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  margin-left: 4px;
+}
+.start-btn.active {
+  background: #10b981;
+  color: white;
+}
+.start-btn:hover {
+  background: #cbd5e1;
+}
+
+/* Macros Drop Zone */
+.node-macros-compact {
+  border-top: 1px solid #e5e7eb;
+  margin-top: 8px;
+  padding: 8px;
+  min-height: 40px;
+  width: 100%;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: auto;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.node-macros-compact:hover {
+  background-color: #f9fafb;
+}
+
+.macro-empty-state {
+  font-size: 11px;
+  color: #9ca3af;
+  font-style: italic;
+  padding: 4px 0;
+}
+
+.macro-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Macro Child Item */
+.macro-child-item {
+  padding: 6px 8px;
+  background: #f3f4f6;
+  border-radius: 4px;
+  font-size: 11px;
+  border-left: 3px solid #3b82f6;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.macro-child-item:hover {
+  background: #e5e7eb;
+  border-left-color: #2b6cb0;
+  padding-left: 10px;
+}
+
+.macro-child-item input {
+  font-size: 11px;
+  padding: 2px 4px;
+  width: 100%;
+  border: 1px solid #bfdbfe;
+  border-radius: 3px;
+}
+
+.macro-child-item span {
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.macro-item-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+}
+
+.macro-name {
+  font-weight: 500;
+  color: #1f2937;
+  flex: 1;
+}
+
+.macro-delete-btn {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+  opacity: 0;
+}
+
+.macro-child-item:hover .macro-delete-btn {
+  opacity: 1;
+  color: #ef4444;
+  background: #fee2e2;
+}
+
+.macro-delete-btn:hover {
+  background: #fecaca;
+}
+
+/* Pages list styling */
+.pages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0 0 12px;
+  border-left: 2px solid #e5e7eb;
+  margin-left: 4px;
+}
+
+.page-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 6px;
+  background: #f9fafb;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.page-link-text {
+  color: #0891b2;
+  text-decoration: none;
+  cursor: pointer;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-link-text:hover {
+  text-decoration: underline;
+  color: #0369a1;
+}
+
+.page-delete-btn {
+  background: none;
+  border: none;
+  color: #d1d5db;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 2px 4px;
+  border-radius: 2px;
+  transition: all 0.2s ease;
+  opacity: 0;
+  flex-shrink: 0;
+}
+
+.page-item:hover .page-delete-btn {
+  opacity: 1;
+  color: #ef4444;
+  background: #fee2e2;
+}
+
+.page-delete-btn:hover {
+  background: #fecaca;
+}
+
+.custom-node .node-title{font-weight:700;margin-bottom:8px}
+
