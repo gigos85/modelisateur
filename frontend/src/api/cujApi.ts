@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const api = axios.create({ baseURL: '/api/cuj' })
+const api = axios.create({ baseURL: 'http://localhost:4000/api/cuj' })
 
 export const getCujs = async () => {
   const res = await api.get('/')
