@@ -6,12 +6,14 @@ type Props = {
   id?: string
   title: string
   subtitle?: string
+  code?: string
+  criticity?: string
   kind?: 'step' | 'macro'
   onRename?: (newName: string, oldName?: string) => void
   onDelete?: () => void
 }
 
-const StageCard: React.FC<Props> = ({ id, title, subtitle, kind = 'macro', onRename, onDelete }) => {
+const StageCard: React.FC<Props> = ({ id, title, subtitle, code, criticity, kind = 'macro', onRename, onDelete }) => {
   const [editing, setEditing] = useState(false)
   const [hover, setHover] = useState(false)
   const [localTitle, setLocalTitle] = useState(title)
@@ -99,6 +101,7 @@ const StageCard: React.FC<Props> = ({ id, title, subtitle, kind = 'macro', onRen
       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
     >
       <div style={{ flex: 1 }}>
+        {code && <div className="stage-card-code">{code}</div>}
         <div className="stage-card-title" onDoubleClick={() => setEditing(true)}>
           {editing ? (
             <input
@@ -112,7 +115,10 @@ const StageCard: React.FC<Props> = ({ id, title, subtitle, kind = 'macro', onRen
             localTitle
           )}
         </div>
-        {subtitle && <div className="stage-card-sub">{subtitle}</div>}
+        <div className="stage-card-meta">
+          {criticity && <span className="stage-card-criticity">{criticity}</span>}
+          {subtitle && <div className="stage-card-sub">{subtitle}</div>}
+        </div>
       </div>
       <button 
         onClick={(e) => { e.stopPropagation(); handleDelete(); }}

@@ -62,19 +62,55 @@ function initializeTables() {
     }
   })
 
+  // Components table (groups macros)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS components (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cuj_id TEXT NOT NULL,
+      code TEXT NOT NULL,
+      name TEXT NOT NULL,
+      desc TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(cuj_id, code),
+      FOREIGN KEY (cuj_id) REFERENCES cujs(id) ON DELETE CASCADE
+    )
+  `)
+
   // Macros table (at CUJ level)
   db.run(`
     CREATE TABLE IF NOT EXISTS macros (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       cuj_id TEXT NOT NULL,
+      component_id INTEGER,
+      code TEXT,
       name TEXT NOT NULL,
+      criticity TEXT,
       desc TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(cuj_id, name),
-      FOREIGN KEY (cuj_id) REFERENCES cujs(id) ON DELETE CASCADE
+      FOREIGN KEY (cuj_id) REFERENCES cujs(id) ON DELETE CASCADE,
+      FOREIGN KEY (component_id) REFERENCES components(id) ON DELETE SET NULL
     )
   `)
+
+  // Add columns if database already exists
+  db.run(`ALTER TABLE macros ADD COLUMN code TEXT`, (err) => {
+    if (err && !/duplicate column/i.test(err.message)) {
+      console.error('Error adding code column to macros table:', err)
+    }
+  })
+  db.run(`ALTER TABLE macros ADD COLUMN criticity TEXT`, (err) => {
+    if (err && !/duplicate column/i.test(err.message)) {
+      console.error('Error adding criticity column to macros table:', err)
+    }
+  })
+  db.run(`ALTER TABLE macros ADD COLUMN component_id INTEGER REFERENCES components(id)`, (err) => {
+    if (err && !/duplicate column/i.test(err.message)) {
+      console.error('Error adding component_id column to macros table:', err)
+    }
+  })
 
   // Step macros association
   db.run(`
@@ -171,8 +207,40 @@ export async function getCujById(id) {
 
     // Load related data
     const steps = await dbAll('SELECT * FROM steps WHERE cuj_id = ?', [id])
-    const macros = await dbAll('SELECT id, name, desc FROM macros WHERE cuj_id = ?', [id])
+    const components = await dbAll(`
+      SELECT c.id, c.code, c.name, c.desc,
+             GROUP_CONCAT(m.id || '|' || m.code || '|' || m.name || '|' || COALESCE(m.criticity, '') || '|' || COALESCE(m.desc, '')) as macros_data
+      FROM components c
+      LEFT JOIN macros m ON c.id = m.component_id
+      WHERE c.cuj_id = ?
+      GROUP BY c.id
+    `, [id])
+    console.log(`Components for CUJ ${id}:`, components)
     const edges = await dbAll('SELECT from_step_id as `from`, to_step_id as `to` FROM edges WHERE cuj_id = ?', [id])
+
+    // Parse components and their macros
+    const parsedComponents = components.map(comp => {
+      console.log(`Component ${comp.id} (${comp.name}): macros_data =`, comp.macros_data)
+      const parsedMacros = comp.macros_data ? comp.macros_data.split(',').map(macroStr => {
+        console.log('Processing macro string:', macroStr)
+        const [id, code, name, criticity, desc] = macroStr.split('|')
+        const parsedMacro = { id: parseInt(id), code, name, criticity: criticity || null, desc: desc || null }
+        console.log('Parsed macro:', parsedMacro)
+        return parsedMacro
+      }) : []
+      console.log(`Parsed macros for component ${comp.id}:`, parsedMacros)
+      return {
+        id: comp.id,
+        code: comp.code,
+        name: comp.name,
+        desc: comp.desc,
+        macros: parsedMacros
+      }
+    })
+
+    // Load standalone macros (not in components)
+    const standaloneMacros = await dbAll('SELECT id, code, name, criticity, desc FROM macros WHERE cuj_id = ? AND component_id IS NULL', [id])
+    console.log(`Standalone macros for CUJ ${id}:`, standaloneMacros)
 
     // Enrich steps with macros and their pages
     for (const step of steps) {
@@ -186,7 +254,7 @@ export async function getCujById(id) {
       }
 
       const stepMacros = await dbAll(`
-        SELECT m.id, m.name, m.desc FROM macros m
+        SELECT m.id, m.code, m.name, m.criticity, m.desc FROM macros m
         JOIN step_macros sm ON m.id = sm.macro_id
         WHERE sm.step_id = ?
       `, [step.id])
@@ -206,7 +274,8 @@ export async function getCujById(id) {
     return {
       ...cuj,
       steps,
-      macros,
+      components: parsedComponents,
+      standaloneMacros,
       edges
     }
   } catch (err) {
@@ -339,8 +408,8 @@ export async function createMacro(cujId, macroData) {
   try {
     const result = await new Promise((resolve, reject) => {
       db.run(
-        'INSERT INTO macros (cuj_id, name, desc) VALUES (?, ?, ?)',
-        [cujId, macroData.name, macroData.desc || ''],
+        'INSERT INTO macros (cuj_id, component_id, code, name, criticity, desc) VALUES (?, ?, ?, ?, ?, ?)',
+        [cujId, macroData.component_id || null, macroData.code || null, macroData.name, macroData.criticity || null, macroData.desc || ''],
         function(err) {
           if (err) reject(err)
           else resolve({ id: this.lastID, cuj_id: cujId, ...macroData })
@@ -350,6 +419,24 @@ export async function createMacro(cujId, macroData) {
     return result
   } catch (err) {
     console.error('Error creating macro:', err)
+    throw err
+  }
+}
+
+export async function createMacroInComponent(cujId, componentId, macroData) {
+  try {
+    // Ensure the component exists and belongs to the CUJ
+    const component = await dbGet(
+      'SELECT id FROM components WHERE id = ? AND cuj_id = ?',
+      [componentId, cujId]
+    )
+    if (!component) throw new Error(`Component ${componentId} not found in CUJ ${cujId}`)
+
+    // Create the macro with component_id set
+    const macroWithComponent = { ...macroData, component_id: componentId }
+    return await createMacro(cujId, macroWithComponent)
+  } catch (err) {
+    console.error('Error creating macro in component:', err)
     throw err
   }
 }
@@ -367,6 +454,14 @@ export async function updateMacro(cujId, macroName, payload) {
     if (payload.newName !== undefined) {
       updates.push('name = ?')
       params.push(payload.newName)
+    }
+    if (payload.code !== undefined) {
+      updates.push('code = ?')
+      params.push(payload.code)
+    }
+    if (payload.criticity !== undefined) {
+      updates.push('criticity = ?')
+      params.push(payload.criticity)
     }
     if (payload.desc !== undefined) {
       updates.push('desc = ?')
@@ -388,12 +483,16 @@ export async function updateMacro(cujId, macroName, payload) {
 // Update macro using its internal id (avoids name encoding issues)
 export async function updateMacroById(cujId, macroId, payload) {
   try {
+    console.log(`Updating macro ${macroId} in CUJ ${cujId} with payload:`, payload)
+    macroId = parseInt(macroId, 10)
+    console.log(`Parsed macroId: ${macroId}`)
     // ensure macro belongs to cuj
     const macro = await dbGet(
-      'SELECT id FROM macros WHERE id = ? AND cuj_id = ?',
+      'SELECT id, cuj_id, component_id, name FROM macros WHERE id = ? AND cuj_id = ?',
       [macroId, cujId]
     )
-    if (!macro) throw new Error('Macro not found')
+    console.log('Found macro:', macro)
+    if (!macro) throw new Error(`Macro ${macroId} not found in CUJ ${cujId}`)
 
     const updates = []
     const params = []
@@ -401,19 +500,34 @@ export async function updateMacroById(cujId, macroId, payload) {
       updates.push('name = ?')
       params.push(payload.newName)
     }
+    if (payload.code !== undefined) {
+      updates.push('code = ?')
+      params.push(payload.code)
+    }
+    if (payload.criticity !== undefined) {
+      updates.push('criticity = ?')
+      params.push(payload.criticity)
+    }
     if (payload.desc !== undefined) {
       updates.push('desc = ?')
       params.push(payload.desc)
     }
 
+    console.log('Updates:', updates)
+    console.log('Params before:', params)
+
     if (updates.length === 0) return
     updates.push('updated_at = CURRENT_TIMESTAMP')
     params.push(macroId)
+
+    console.log('Final updates:', updates.join(', '))
+    console.log('Final params:', params)
 
     await dbRun(
       `UPDATE macros SET ${updates.join(', ')} WHERE id = ?`,
       params
     )
+    console.log('Macro updated successfully')
   } catch (err) {
     console.error('Error updating macro by id:', err)
     throw err
@@ -501,6 +615,102 @@ export async function deleteEdge(cujId, edgeData) {
     )
   } catch (err) {
     console.error('Error deleting edge:', err)
+    throw err
+  }
+}
+
+// ============================================
+// COMPONENT OPERATIONS
+// ============================================
+
+export async function createComponent(cujId, componentData) {
+  try {
+    const result = await new Promise((resolve, reject) => {
+      db.run(
+        'INSERT INTO components (cuj_id, code, name, desc) VALUES (?, ?, ?, ?)',
+        [cujId, componentData.code, componentData.name, componentData.desc || ''],
+        function(err) {
+          if (err) reject(err)
+          else resolve({ id: this.lastID, cuj_id: cujId, ...componentData })
+        }
+      )
+    })
+    return result
+  } catch (err) {
+    console.error('Error creating component:', err)
+    throw err
+  }
+}
+
+export async function updateComponent(cujId, componentId, payload) {
+  try {
+    const updates = []
+    const params = []
+    if (payload.code !== undefined) {
+      updates.push('code = ?')
+      params.push(payload.code)
+    }
+    if (payload.name !== undefined) {
+      updates.push('name = ?')
+      params.push(payload.name)
+    }
+    if (payload.desc !== undefined) {
+      updates.push('desc = ?')
+      params.push(payload.desc)
+    }
+    updates.push('updated_at = CURRENT_TIMESTAMP')
+    params.push(componentId)
+
+    await dbRun(
+      `UPDATE components SET ${updates.join(', ')} WHERE id = ? AND cuj_id = ?`,
+      [...params, cujId]
+    )
+    return { success: true }
+  } catch (err) {
+    console.error('Error updating component:', err)
+    throw err
+  }
+}
+
+export async function deleteComponent(cujId, componentId) {
+  try {
+    await dbRun('DELETE FROM components WHERE id = ? AND cuj_id = ?', [componentId, cujId])
+    return { success: true }
+  } catch (err) {
+    console.error('Error deleting component:', err)
+    throw err
+  }
+}
+
+export async function addMacroToComponent(cujId, componentId, macroId) {
+  try {
+    console.log(`Adding macro ${macroId} (type: ${typeof macroId}) to component ${componentId} (type: ${typeof componentId}) in CUJ ${cujId}`)
+    const result = await dbRun(
+      'UPDATE macros SET component_id = ? WHERE id = ? AND cuj_id = ?',
+      [componentId, macroId, cujId]
+    )
+    console.log('Update result:', result)
+    
+    // Vérifions que la mise à jour a fonctionné
+    const check = await dbGet('SELECT id, component_id FROM macros WHERE id = ? AND cuj_id = ?', [macroId, cujId])
+    console.log('Macro after update:', check)
+    
+    return { success: true }
+  } catch (err) {
+    console.error('Error adding macro to component:', err)
+    throw err
+  }
+}
+
+export async function removeMacroFromComponent(cujId, macroId) {
+  try {
+    await dbRun(
+      'UPDATE macros SET component_id = NULL WHERE id = ? AND cuj_id = ?',
+      [macroId, cujId]
+    )
+    return { success: true }
+  } catch (err) {
+    console.error('Error removing macro from component:', err)
     throw err
   }
 }

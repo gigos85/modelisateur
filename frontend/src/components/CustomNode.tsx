@@ -418,7 +418,11 @@ const CustomNode: React.FC<any> = ({ id, data }) => {
                 ) : (
                   <div className="macro-item-content">
                     <div className="macro-name-and-pages">
-                      <span className="macro-name">{macro.name}</span>
+                      <div className="macro-header">
+                        <span className="macro-code">{macro.code || 'N/A'}</span>
+                        <span className="macro-name">{macro.name}</span>
+                        <span className="macro-criticity">{macro.criticity || 'N/A'}</span>
+                      </div>
                     </div>
                     <button 
                       className="macro-delete-btn"

@@ -106,4 +106,38 @@ export const deleteCujMacroById = async (cujId: string, macroId: string | number
   return res.data
 }
 
+// ============================================
+// COMPONENT API FUNCTIONS
+// ============================================
+
+export const createComponent = async (cujId: string, componentData: any) => {
+  const res = await api.post(`/${cujId}/components`, componentData)
+  return res.data
+}
+
+export const updateComponent = async (cujId: string, componentId: string | number, payload: any) => {
+  const res = await api.put(`/${cujId}/components/${componentId}`, payload)
+  return res.data
+}
+
+export const deleteComponent = async (cujId: string, componentId: string | number) => {
+  const res = await api.delete(`/${cujId}/components/${componentId}`)
+  return res.data
+}
+
+export const createMacroInComponent = async (cujId: string, componentId: string | number, macro: any) => {
+  const res = await api.post(`/${cujId}/components/${componentId}/macros`, macro)
+  return res.data
+}
+
+export const addMacroToComponent = async (cujId: string, componentId: string | number, macroId: string | number) => {
+  const res = await api.post(`/${cujId}/components/${componentId}/macros/${macroId}`)
+  return res.data
+}
+
+export const removeMacroFromComponent = async (cujId: string, componentId: string | number, macroId: string | number) => {
+  const res = await api.delete(`/${cujId}/components/${componentId}/macros/${macroId}`)
+  return res.data
+}
+
 export default api

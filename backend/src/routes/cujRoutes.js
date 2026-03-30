@@ -186,7 +186,11 @@ router.delete('/:id/macros/id/:macroId', async (req, res) => {
 // Update CUJ macros by id
 router.put('/:id/macros/id/:macroId', async (req, res) => {
   try {
-    await dbOps.updateMacroById(req.params.id, req.params.macroId, req.body)
+    console.log(`PUT /${req.params.id}/macros/id/${req.params.macroId}`)
+    console.log('Request body:', req.body)
+    const macroId = parseInt(req.params.macroId, 10)
+    console.log(`Parsed macroId: ${macroId}`)
+    await dbOps.updateMacroById(req.params.id, macroId, req.body)
     res.json({ success: true })
   } catch (err) {
     console.error('Error updating CUJ macro by id:', err)
@@ -259,6 +263,77 @@ router.put('/:id/macros/:macroName', async (req, res) => {
     res.json({ success: true })
   } catch (err) {
     console.error('Error updating macro:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ============================================
+// COMPONENT ROUTES
+// ============================================
+
+// Create a component
+router.post('/:id/components', async (req, res) => {
+  try {
+    const component = await dbOps.createComponent(req.params.id, req.body)
+    res.json({ success: true, component })
+  } catch (err) {
+    console.error('Error creating component:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Update a component
+router.put('/:id/components/:componentId', async (req, res) => {
+  try {
+    await dbOps.updateComponent(req.params.id, req.params.componentId, req.body)
+    res.json({ success: true })
+  } catch (err) {
+    console.error('Error updating component:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Delete a component
+router.delete('/:id/components/:componentId', async (req, res) => {
+  try {
+    await dbOps.deleteComponent(req.params.id, req.params.componentId)
+    res.json({ success: true })
+  } catch (err) {
+    console.error('Error deleting component:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Create macro directly in component
+router.post('/:id/components/:componentId/macros', async (req, res) => {
+  try {
+    const macro = await dbOps.createMacroInComponent(req.params.id, req.params.componentId, req.body)
+    res.json({ success: true, macro })
+  } catch (err) {
+    console.error('Error creating macro in component:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Add macro to component
+router.post('/:id/components/:componentId/macros/:macroId', async (req, res) => {
+  try {
+    console.log(`Adding macro ${req.params.macroId} to component ${req.params.componentId} in CUJ ${req.params.id}`)
+    await dbOps.addMacroToComponent(req.params.id, req.params.componentId, req.params.macroId)
+    res.json({ success: true })
+  } catch (err) {
+    console.error('Error adding macro to component:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Remove macro from component
+router.delete('/:id/components/:componentId/macros/:macroId', async (req, res) => {
+  try {
+    await dbOps.removeMacroFromComponent(req.params.id, req.params.macroId)
+    res.json({ success: true })
+  } catch (err) {
+    console.error('Error removing macro from component:', err)
     res.status(500).json({ error: err.message })
   }
 })
